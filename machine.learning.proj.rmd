@@ -1,0 +1,170 @@
+---
+title: "machine.learning.project"
+author: "Sean Jackson"
+date: "October 25, 2015"
+output: html_document
+---
+
+#Practical Machine Learning Project
+#Classification of Motion Data by Activity
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+##Data 
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+
+#Load packages
+
+```{r, echo=TRUE}
+library(caret)
+```
+
+#Load data sets
+
+```{r,echo=TRUE}
+train.data <- read.csv("pml-training.csv")
+test.data <- read.csv("pml-testing.csv")
+```
+
+#Partition and clean data for analysis
+
+###Partition data into sample and validation sets
+
+```{r, echo=TRUE}
+set.seed(92109)
+train.partion <- createDataPartition(y=train.data$classe, 
+                                     p=0.7, 
+                                     list=FALSE)
+train.sample <- train.data[train.partion, ]
+train.validation <- train.data[-train.partion, ]
+```
+
+###Remove variables with near zero variance using Caret's nearZeroVar function
+
+```{r, echo=TRUE}
+data.nearZero <- nearZeroVar(train.sample)
+train.sample <- train.sample[, -data.nearZero]
+train.validation <- train.validation[, -data.nearZero]
+```
+
+###Remove variables that are NA greater than 95% of instances
+
+```{r, echo=TRUE}
+data.na <- sapply(train.sample, function(x) mean(is.na(x))) > 0.95
+train.sample <- train.sample[, data.na==FALSE]
+train.validation <- train.validation[, data.na==FALSE]
+```
+
+Reviewing the data types, it is clear that the first 5 columns have no effect on the model
+
+###Remove the first 5 columns from the training and test sets
+
+```{r, echo=TRUE}
+train.sample <- train.sample[, -(1:5)]
+train.validation <- train.validation[, -(1:5)]
+```
+
+###Analyze sample against validation set and prepare model to use 3-fold Cross Validation
+
+```{r, echo=TRUE}
+train.Control <- trainControl(method="cv", number=3, verboseIter=FALSE)
+```
+
+###Train random forest model on train.sample
+
+```{r, echo=TRUE}
+train.fit <- train(classe ~ ., data=train.sample, method="rf", trControl=train.Control)
+
+train.fit$finalModel
+```
+
+###Use model to predict classe in validation set
+
+```{r, echo=TRUE}
+prediction.data <- predict(train.fit, newdata=train.validation)
+```
+
+###Show confusion matrix to get estimate of out-of-sample error
+
+```{r, echo=TRUE}
+confusionMatrix(train.validation$classe, prediction.data)
+```
+
+This seems to be a very accurate model with over 99% accuracy
+
+
+###Repeat previous analysis on training and test sets
+
+###Remove variables with nearly zero variance using nearZeroVar function from Caret package
+
+```{r, echo=TRUE}
+data.nearZero <- nearZeroVar(train.data)
+train.data <- train.data[, -data.nearZero]
+test.data <- test.data[, -data.nearZero]
+```
+
+###Remove variables that have an NA value greater than 95% of the time
+
+```{r, echo=TRUE}
+data.na <- sapply(train.data, function(x) mean(is.na(x))) > 0.95
+train.data <- train.data[, data.na==FALSE]
+test.data <- test.data[, data.na==FALSE]
+```
+
+Reviewing the data types, it is clear that the first 5 columns have no effect on the model
+
+###Remove the first 5 columns from the training and test sets
+
+```{r, echo=TRUE}
+train.data <- train.data[, -(1:5)]
+test.data <- test.data[, -(1:5)]
+```
+
+###Re-train model using full training set
+
+```{r, echo=TRUE}
+train.Control <- trainControl(method="cv", number=3, verboseIter=FALSE)
+train.fit <- train(classe ~ ., 
+                   data=train.data, 
+                   method="rf", 
+                   trControl=train.Control)
+```
+
+###Predict training set on test set
+
+```{r, echo=TRUE}
+prediction.data <- predict(train.fit, 
+                           newdata=test.data)
+prediction.data <- as.character(prediction.data)
+```
+
+###Function to write predictions to individual files provided by course
+
+```{r,echo=TRUE}
+pml_write_files <- function(x) {
+  n <- length(x)
+  for(i in 1:n) {
+    filename <- paste0("problem_id_", i, ".txt")
+    write.table(x[i], file=filename, quote=F, row.names=FALSE, col.names=FALSE)
+  }
+}
+```
+
+#Create prediction files to submit using function
+
+```{r,echo=TRUE}
+pml_write_files(prediction.data)
+```
