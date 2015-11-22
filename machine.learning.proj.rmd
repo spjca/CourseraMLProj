@@ -1,7 +1,7 @@
 ---
-title: "machine.learning.project"
+title: "Coursera Machine Learning Project"
 author: "Sean Jackson"
-date: "October 25, 2015"
+date: "November 22, 2015"
 output: html_document
 ---
 
